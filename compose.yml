@@ -22,8 +22,8 @@ services:
       # directory. env_file only reaches the container, not this line.
       - "${POSTGRES_PORT:?POSTGRES_PORT is required (see .env.example)}:5432"
     volumes:
-      # Bind mount: dữ liệu nằm ngay trong thư mục dự án, ở ./data/pgdata trên
-      # host. Đường dẫn tương đối tính từ vị trí file compose.yml này.
+      # Bind mount: the data sits inside the project directory, at ./data/pgdata
+      # on the host. The relative path resolves from where this compose.yml is.
       - ./data:/var/lib/postgresql/data
     healthcheck:
       # $$ escapes the $ so the shell inside the container expands it,

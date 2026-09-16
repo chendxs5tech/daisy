@@ -1,5 +1,5 @@
--- Chạy MỘT LẦN duy nhất, ở lần khởi động đầu tiên, khi PGDATA còn rỗng.
--- Được entrypoint chạy bằng superuser, trên database POSTGRES_DB (= daisy).
+-- Runs EXACTLY ONCE, on the first start, while PGDATA is still empty.
+-- Executed by the entrypoint as the superuser, against POSTGRES_DB (= daisy_db).
 \set ON_ERROR_STOP on
 
 CREATE TABLE IF NOT EXISTS test_demo (
@@ -10,5 +10,5 @@ CREATE TABLE IF NOT EXISTS test_demo (
 );
 
 INSERT INTO test_demo (name, note) VALUES
-  ('demo 1', 'dữ liệu mẫu để test kết nối'),
+  ('demo 1', 'sample row for testing the connection'),
   ('demo 2', NULL);

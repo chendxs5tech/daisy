@@ -1,66 +1,66 @@
-# daisy — database chung của DX team
+# daisy — the DX team's shared database
 
-`daisy` là **database dùng chung của DX team**: một chỗ duy nhất, tên gọi thống nhất, để
-cả team cùng đọc và ghi dữ liệu của mình — thay vì mỗi người giữ một bản riêng rồi số
-liệu lệch nhau.
+`daisy` is the **DX team's shared database**: one place, one agreed-upon name, where the
+whole team reads and writes its data — instead of everyone keeping a private copy and
+watching the numbers drift apart.
 
-Thư mục này chứa toàn bộ phần dựng `daisy`: một **PostgreSQL 15.12 chạy bằng Docker
-Compose**, tự nạp schema ở lần khởi động đầu tiên. Chỉ có một service duy nhất là
-`postgres`, không có gì khác để phải bảo trì. Version được ghim cố định để máy ai chạy
-cũng ra đúng một phiên bản.
+This directory holds everything needed to stand `daisy` up: a **PostgreSQL 15.12 running
+under Docker Compose** that loads its schema on the first start. There is exactly one
+service, `postgres`, and nothing else to maintain. The version is pinned so that every
+machine runs the identical build.
 
-> Phần "dùng vào việc cụ thể gì" — những bảng nào, ai ghi vào, dữ liệu lấy từ đâu — chưa
-> được viết. Khi team chốt xong thì bổ sung vào đây.
+> The "what do we actually use it for" part — which tables, who writes to them, where the
+> data comes from — is not written yet. Fill it in here once the team settles it.
 
-## Quy ước tên
+## Naming convention
 
-Mọi thứ đều mang chữ `daisy` để nhìn là biết ngay thuộc về đâu: project `daisy`, image
-`daisy-postgres:15.12`, container `daisy-postgres`, volume `daisy-postgres-data`, user
-`daisy`, database `daisy_db`. Thêm gì mới thì giữ đúng quy ước này.
+Everything carries the word `daisy` so its origin is obvious at a glance: project `daisy`,
+image `daisy-postgres:15.12`, container `daisy-postgres`, user `daisy`, database
+`daisy_db`. Keep to this convention for anything you add.
 
-## Cấu trúc
+## Layout
 
-| File | Vai trò |
+| File | Purpose |
 | --- | --- |
-| [compose.yml](compose.yml) | Định nghĩa service `postgres` |
-| [Dockerfile](Dockerfile) | Image Postgres custom: timezone + copy script initdb |
-| [.env.example](.env.example) | Mẫu biến môi trường, copy thành `.env` |
-| [initdb/01-init.sql](initdb/01-init.sql) | Bảng `test_demo` + 2 dòng dữ liệu mẫu |
-| `data/` | Dữ liệu Postgres, Docker tự tạo ở lần chạy đầu. Không commit |
+| [compose.yml](compose.yml) | Defines the `postgres` service |
+| [Dockerfile](Dockerfile) | Custom Postgres image: timezone + copies the initdb scripts |
+| [.env.example](.env.example) | Environment variable template, copy it to `.env` |
+| [initdb/01-init.sql](initdb/01-init.sql) | The `test_demo` table + 2 sample rows |
+| `data/` | Postgres data, created by Docker on the first run. Never commit it |
 
-## Chạy
+## Running it
 
 ```bash
-cp .env.example .env      # rồi sửa POSTGRES_PASSWORD
+cp .env.example .env      # then set POSTGRES_PASSWORD
 docker compose up -d --build
-docker compose ps         # chờ tới khi state là "healthy"
+docker compose ps         # wait until the state reads "healthy"
 ```
 
-## Kết nối
+## Connecting
 
 ```
 postgresql://daisy:<POSTGRES_PASSWORD>@localhost:5432/daisy_db
 ```
 
-Vào psql trong container:
+Open psql inside the container:
 
 ```bash
 docker compose exec postgres psql -U daisy -d daisy_db
 ```
 
-Kiểm tra nhanh là chạy được:
+Quick check that it works:
 
 ```bash
 docker compose exec postgres psql -U daisy -d daisy_db -c 'select * from test_demo;'
 ```
 
-## Lệnh thường dùng
+## Everyday commands
 
 ```bash
-docker compose logs -f postgres        # xem log
+docker compose logs -f postgres        # tail the logs
 docker compose restart postgres        # restart
-docker compose down                    # dừng, GIỮ dữ liệu
-rm -rf ./data                          # XOÁ sạch dữ liệu (chạy sau khi đã down)
+docker compose down                    # stop, KEEPING the data
+rm -rf ./data                          # DELETE all data (run it after `down`)
 ```
 
 Backup / restore:
@@ -71,30 +71,35 @@ docker compose exec -T postgres pg_dump -U daisy -d daisy_db -Fc > backups/daisy
 docker compose exec -T postgres pg_restore -U daisy -d daisy_db --clean < backups/daisy.dump
 ```
 
-## Lưu ý
+## Notes
 
-- **Cấu hình hiện tại chưa dùng chung được thật.** Compose map port ra `localhost` của
-  máy chạy nó và dữ liệu nằm ở volume cục bộ, nên mỗi người tự `docker compose up` sẽ có
-  một bản `daisy` riêng, dữ liệu không thấy nhau. Muốn chung thật thì phải dựng trên
-  **một** máy cả team nối tới được, mở port cho mạng nội bộ chứ không chỉ `localhost`, và
-  cấp user riêng cho từng người thay vì dùng chung user `daisy`. Chưa làm phần đó.
-- **Bắt buộc phải có file `.env`.** `compose.yml` khai báo `env_file: .env` (không đặt
-  `optional: true`), nên thiếu file là Compose báo lỗi ngay chứ không chạy với giá trị
-  mặc định ẩn. `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` đi thẳng từ `.env` vào
-  container; `POSTGRES_PORT` do chính Compose nội suy và cũng báo lỗi nếu chưa khai báo.
-- **Dự án đặt ở `/opt/daisy` trên VM.** Bind mount trong `compose.yml` viết bằng đường dẫn
-  tương đối (`./data`) nên không phụ thuộc vị trí này — Compose tính tương đối từ chỗ đặt
-  `compose.yml`. Đặt ở `/opt/daisy` thì dữ liệu ra `/opt/daisy/data/pgdata`.
-- **Dữ liệu nằm ngay trong thư mục dự án**, ở `./data/pgdata`, bằng bind mount chứ không
-  phải named volume. Nhìn thấy và backup được bằng đường dẫn thật trên máy. Hệ quả:
-  `docker compose down -v` **không** xoá dữ liệu nữa (cờ `-v` chỉ xoá named volume), muốn
-  xoá sạch thì phải tự xoá thư mục `./data`.
-- `data/` đã được thêm vào `.gitignore` và `.dockerignore`. Bắt buộc phải có: thiếu dòng
-  trong `.gitignore` là commit cả database, thiếu trong `.dockerignore` là mỗi lần
-  `--build` phải copy cả database vào build context.
-- Script trong `initdb/` **chỉ chạy một lần**, khi `./data` còn rỗng. Sửa schema sau đó
-  thì phải apply bằng migration, hoặc reset sạch bằng
+- **As configured, this is not actually shared yet.** Compose publishes the port on the
+  `localhost` of whichever machine runs it, and the data lives in a local directory, so
+  everyone who runs `docker compose up` gets their own private `daisy` and none of them
+  see each other's data. Making it genuinely shared means hosting it on **one** machine
+  the team can reach, publishing the port to the internal network rather than only
+  `localhost`, and issuing a separate user per person instead of sharing the `daisy` user.
+  That part has not been done.
+- **A `.env` file is mandatory.** `compose.yml` declares `env_file: .env` without
+  `optional: true`, so a missing file makes Compose fail immediately rather than boot with
+  hidden defaults. `POSTGRES_DB`, `POSTGRES_USER` and `POSTGRES_PASSWORD` go straight from
+  `.env` into the container; `POSTGRES_PORT` is interpolated by Compose itself and also
+  errors out if it is not declared.
+- **The project lives at `/opt/daisy` on the VM.** The bind mount in `compose.yml` uses a
+  relative path (`./data`), so it does not depend on that location — Compose resolves it
+  relative to where `compose.yml` sits. At `/opt/daisy`, the data lands in
+  `/opt/daisy/data/pgdata`.
+- **The data lives inside the project directory**, at `./data/pgdata`, via a bind mount
+  rather than a named volume. That makes it visible and backup-able through a real path on
+  the host. The consequence: `docker compose down -v` no longer deletes the data (`-v`
+  only removes named volumes), so wiping it means deleting the `./data` directory
+  yourself.
+- `data/` is listed in both `.gitignore` and `.dockerignore`. Both entries are required:
+  without the `.gitignore` line you commit the entire database, and without the
+  `.dockerignore` line every `--build` copies the entire database into the build context.
+- The scripts in `initdb/` **run only once**, while `./data` is still empty. Schema changes
+  after that have to be applied as migrations, or reset from scratch with
   `docker compose down && rm -rf ./data && docker compose up -d --build`.
-- `initdb/` cố ý để đơn giản: một bảng `test_demo` và 2 dòng mẫu, không extension, không
-  schema riêng, không trigger.
-- Timezone trong container là `Asia/Ho_Chi_Minh`, đặt trong [Dockerfile](Dockerfile).
+- `initdb/` is deliberately minimal: one `test_demo` table and 2 sample rows — no
+  extensions, no separate schema, no triggers.
+- The container's timezone is `Asia/Ho_Chi_Minh`, set in the [Dockerfile](Dockerfile).

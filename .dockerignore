@@ -1,6 +1,6 @@
 .env
-# Dữ liệu Postgres (bind mount). Không đưa vào build context, nếu không mỗi lần
-# build sẽ phải copy cả database.
+# Postgres data (bind mount). Keep it out of the build context, otherwise every
+# build has to copy the whole database.
 data/
 .git
 .gitignore

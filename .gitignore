@@ -1,6 +1,6 @@
 .env
 *.local
-# Dữ liệu Postgres (bind mount). Tuyệt đối không commit.
+# Postgres data (bind mount). Never commit this.
 data/
 backups/
 *.dump
