@@ -54,6 +54,32 @@ Quick check that it works:
 docker compose exec postgres psql -U daisy -d daisy_db -c 'select * from test_demo;'
 ```
 
+### From your own machine, over the VPN
+
+Port 5432 is not open on the VM's firewall, so tunnel it over SSH — port 22 is already
+allowlisted for the VPN. Keep this running in its own window:
+
+```bash
+ssh -N -L 15432:127.0.0.1:5432 dx-vm
+```
+
+`-L 15432:127.0.0.1:5432` opens port 15432 locally and forwards it to port 5432 as seen
+*from the VM*, which is where Docker publishes it. `-N` means no shell, tunnel only. The
+local port is 15432 rather than 5432 so it cannot clash with a Postgres running on your
+own machine. Then point any client at:
+
+```
+postgresql://daisy:<POSTGRES_PASSWORD>@127.0.0.1:15432/daisy_db
+```
+
+Use `sslmode=disable` (or `prefer`); the traffic is already encrypted by SSH. DBeaver has
+an SSH tunnel tab that does all of this for you, so the separate `ssh` window is not
+needed. To check the tunnel alone, without a database client:
+
+```powershell
+Test-NetConnection 127.0.0.1 -Port 15432
+```
+
 ## Everyday commands
 
 ```bash
@@ -73,13 +99,12 @@ docker compose exec -T postgres pg_restore -U daisy -d daisy_db --clean < backup
 
 ## Notes
 
-- **As configured, this is not actually shared yet.** Compose publishes the port on the
-  `localhost` of whichever machine runs it, and the data lives in a local directory, so
-  everyone who runs `docker compose up` gets their own private `daisy` and none of them
-  see each other's data. Making it genuinely shared means hosting it on **one** machine
-  the team can reach, publishing the port to the internal network rather than only
-  `localhost`, and issuing a separate user per person instead of sharing the `daisy` user.
-  That part has not been done.
+- **Not yet shared team-wide, but not because of Compose.** The port is published on
+  `0.0.0.0` inside the VM, so Postgres already listens on every interface — what stops a
+  direct connection from a laptop is the VM's firewall / AWS security group, which does not
+  allow 5432. Until that is opened, reach it through the SSH tunnel described above. Two
+  things should be done before the port is opened: enable TLS on Postgres, and issue a
+  separate user per person instead of sharing the `daisy` user.
 - **A `.env` file is mandatory.** `compose.yml` declares `env_file: .env` without
   `optional: true`, so a missing file makes Compose fail immediately rather than boot with
   hidden defaults. `POSTGRES_DB`, `POSTGRES_USER` and `POSTGRES_PASSWORD` go straight from
