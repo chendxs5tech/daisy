@@ -1,0 +1,47 @@
+name: daisy
+
+services:
+  postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: daisy-postgres:15.12
+    container_name: daisy-postgres
+    restart: unless-stopped
+    # POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD are read straight from
+    # .env. Required (not `.env: optional`), so Compose fails loudly if the
+    # file is missing instead of booting with surprise defaults.
+    env_file:
+      - .env
+    environment:
+      # Keep the cluster in a subdirectory of the mount point, so the mounted
+      # directory itself can hold other things without confusing initdb.
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      # Interpolated by Compose itself, which also reads .env from this
+      # directory. env_file only reaches the container, not this line.
+      - "${POSTGRES_PORT:?POSTGRES_PORT is required (see .env.example)}:5432"
+    volumes:
+      # Bind mount: dữ liệu nằm ngay trong thư mục dự án, ở ./data/pgdata trên
+      # host. Đường dẫn tương đối tính từ vị trí file compose.yml này.
+      - ./data:/var/lib/postgresql/data
+    healthcheck:
+      # $$ escapes the $ so the shell inside the container expands it,
+      # not Compose.
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB} -h 127.0.0.1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # Default 64MB of /dev/shm is not enough for larger parallel queries.
+    shm_size: 256mb
+    command:
+      - postgres
+      - -c
+      - max_connections=200
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - log_statement=ddl
+      - -c
+      - log_min_duration_statement=500

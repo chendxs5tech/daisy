@@ -1,0 +1,8 @@
+.env
+# Dữ liệu Postgres (bind mount). Không đưa vào build context, nếu không mỗi lần
+# build sẽ phải copy cả database.
+data/
+.git
+.gitignore
+README.md
+backups/

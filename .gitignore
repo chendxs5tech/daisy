@@ -1,0 +1,7 @@
+.env
+*.local
+# Dữ liệu Postgres (bind mount). Tuyệt đối không commit.
+data/
+backups/
+*.dump
+*.sql.gz
